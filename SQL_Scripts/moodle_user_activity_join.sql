@@ -81,7 +81,73 @@ WHERE a.status = 'incomplete'
    OR TIMESTAMPDIFF(HOUR, a.start_time, a.end_time) > 2
 GROUP BY a.task_name
 ORDER BY slow_completer_count DESC;
+# *******************************************************************************************************
+SELECT * FROM anaphyl_pipeline.titanic_data;
 
+SELECT 
+    PassengerId,
+    Gender, 
+    Fare,
+    -- This calculates the average completion time FOR THAT SPECIFIC TASK
+    AVG(Fare) OVER(PARTITION BY Gender) AS average_fare
+FROM anaphyl_pipeline.titanic_data;
+
+#******************************************************************************************************
+# The use of OVER(PARTITION BY) with Titanic Data:
+
+SELECT 
+    PassengerId, 
+    Gender, 
+    Pclass,
+    Fare,
+    -- Your original finding
+    AVG(Fare)  AS avg_fare_by_gender,
+    -- The deeper insight: Avg fare for that Gender in that specific Class
+    AVG(Fare) OVER(PARTITION BY Gender, Pclass) AS avg_fare_gender_class
+FROM anaphyl_pipeline.titanic_data;
+
+#********************************************************************************************************
+# The Use of Subqueries (mydb.film):
+
+USE sakila;
+
+# 1. Find the name of a movie with longest run time:
+SELECT title, rating, length
+FROM film
+WHERE length IN (SELECT MAX(length) FROM film);
+
+# 2. Find the proportion of movies with a specific rating:
+SELECT (SELECT COUNT(*) FROM film WHERE rating = 'NC-17') / COUNT(*) as proportion
+FROM film;
+
+
+# 3. Find custmers who have rented a specific movie rating:
+SELECT CONCAT(first_name, " ", last_name) as full_name, email
+FROM customer
+WHERE customer_id IN
+	(SELECT customer_id FROM rental WHERE inventory_id IN
+		(SELECT inventory_id FROM inventory WHERE film_id IN 
+			(SELECT film_id FROM film WHERE rating = 'NC-17')));
+            
+# From Gemini AI:
+SELECT CONCAT(first_name, ' ', last_name) AS full_name, email
+FROM customer
+WHERE customer_id IN (
+    SELECT customer_id 
+    FROM rental 
+    WHERE inventory_id IN (
+        SELECT inventory_id 
+        FROM inventory 
+        WHERE film_id IN (
+            SELECT film_id 
+            FROM film 
+            WHERE rating = 'NC-17'
+        )
+    )
+);
+
+
+#********************************************************************************************************
 
 # ... using Group By without COUNT:
 SELECT 
@@ -93,4 +159,7 @@ GROUP BY task_name;
 -- ****************************************************************************************************
 # Course: 
 # https://www.youtube.com/watch?v=7NBt0V8ebGk
+
+# To also cover:
+# https://www.youtube.com/watch?v=3Pv2tCkSY4Q
 -- ****************************************************************************************************
