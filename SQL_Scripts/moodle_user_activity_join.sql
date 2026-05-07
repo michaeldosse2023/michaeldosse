@@ -1,4 +1,5 @@
 -- Create a dedicated database for your project
+# CREATE DATABASE IF NOT EXISTS analytics;
 CREATE DATABASE IF NOT EXISTS anaphyl_pipeline;
 USE anaphyl_pipeline;
 
@@ -157,9 +158,58 @@ FROM activity
 WHERE status = 'completed'
 GROUP BY task_name;
 -- ****************************************************************************************************
-# Course: 
+# Recomended MySQL Course: 
 # https://www.youtube.com/watch?v=7NBt0V8ebGk
 
 # To also cover:
 # https://www.youtube.com/watch?v=3Pv2tCkSY4Q
+
+# To also cover:
+# https://www.youtube.com/watch?v=-u-kCJmJHCk
+# https://www.youtube.com/watch?v=-u-kCJmJHCk
+-- ****************************************************************************************************
+# Exploring MySQL Databases:
+USE mydb;
+USE anaphyl_pipeline;
+SHOW TABLES;
+DESCRIBE activity;
+
+-- ****************************************************************************************************
+USE analytics;
+
+SELECT  product_category, payment_method, COUNT(*) AS sub_total
+FROM ecommerce_sales
+#WHERE COUNT(*) > 130
+GROUP BY product_category, payment_method
+HAVING COUNT(*) > 130
+ORDER BY COUNT(*) ASC;
+-- ****************************************************************************************************
+# Window Functions:
+USE analytics;
+
+SELECT Category, Sales, Quantity, Profit, Region,
+	ROW_NUMBER() OVER(ORDER BY Profit DESC) AS Popularity,
+    RANK() OVER(ORDER BY Profit DESC) AS Profit_Rank 
+FROM retail_sales
+WHERE Sales > 0;
+
+-- ****************************************************************************************************
+# Window Functions with PARTITION BY:
+USE analytics;
+
+SELECT Category, Sales, Quantity, Profit,
+	ROW_NUMBER() OVER(PARTITION BY Category ORDER BY Profit DESC) AS Popularity
+FROM retail_sales
+WHERE Sales > 0;
+
+-- ****************************************************************************************************
+# Window Functions Using Subquesries:
+USE analytics;
+SELECT * FROM 
+(SELECT Category, Sales, Quantity, Profit,
+	ROW_NUMBER() OVER(PARTITION BY Category ORDER BY Profit DESC) AS Popularity
+FROM retail_sales
+WHERE Sales > 0) AS Pop
+WHERE Popularity <= 100;
+
 -- ****************************************************************************************************
