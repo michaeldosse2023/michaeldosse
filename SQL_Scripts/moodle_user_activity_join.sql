@@ -130,7 +130,7 @@ WHERE customer_id IN
 		(SELECT inventory_id FROM inventory WHERE film_id IN 
 			(SELECT film_id FROM film WHERE rating = 'NC-17')));
             
-# From Gemini AI:
+# From Gemini AI (same as at # 3.):
 SELECT CONCAT(first_name, ' ', last_name) AS full_name, email
 FROM customer
 WHERE customer_id IN (
@@ -147,6 +147,30 @@ WHERE customer_id IN (
     )
 );
 
+# As CTE/Common Table Expression, the logic becomes:
+USE sakila;
+
+WITH target_films AS (
+    SELECT film_id 
+    FROM film 
+    WHERE rating = 'NC-17'
+),
+rented_inventory AS (
+    SELECT inventory_id, film_id 
+    FROM inventory 
+    WHERE film_id IN (SELECT film_id FROM target_films)
+),
+customer_matches AS (
+    SELECT DISTINCT customer_id 
+    FROM rental 
+    WHERE inventory_id IN (SELECT inventory_id FROM rented_inventory)
+)
+-- Final clean output for Python
+SELECT 
+    CONCAT(first_name, ' ', last_name) AS full_name, 
+    email
+FROM customer
+WHERE customer_id IN (SELECT customer_id FROM customer_matches);
 
 #********************************************************************************************************
 
@@ -167,6 +191,10 @@ GROUP BY task_name;
 # To also cover:
 # https://www.youtube.com/watch?v=-u-kCJmJHCk
 # https://www.youtube.com/watch?v=-u-kCJmJHCk
+# https://www.youtube.com/watch?v=LJC8277LONg
+
+# To also cover:
+# https://www.youtube.com/watch?v=GHPHZ8XJxeg
 -- ****************************************************************************************************
 # Exploring MySQL Databases:
 USE mydb;
@@ -211,5 +239,73 @@ SELECT * FROM
 FROM retail_sales
 WHERE Sales > 0) AS Pop
 WHERE Popularity <= 100;
+
+-- ****************************************************************************************************
+# CTE/Common Table Expression vs Subqueries (aslo see "# As CTE, the logic becomes" section above):
+USE analytics;
+
+SELECT *
+FROM 
+(SELECT Category, MAX(Sales) AS Max_Sales
+FROM retail_sales
+GROUP BY Category) AS mp
+WHERE Max_Sales >= 1763; 
+
+
+# CTE/Common Table Expression Demo (to run the next two blocks together):
+WITH mp AS (SELECT Category, MAX(Sales) AS Max_Sales
+FROM retail_sales
+GROUP BY Category) 
+
+SELECT * FROM mp
+WHERE Max_Sales >= 1763; 
+
+# CTE: Multiple References
+USE analytics;
+WITH mp AS (SELECT Category, MAX(Sales) AS Max_Sales
+FROM retail_sales
+GROUP BY Category)
+
+SELECT COUNT(*)
+FROM mp
+WHERE Max_Sales < (SELECT AVG(Max_Sales) FROM mp);
+
+
+-- ****************************************************************************************************
+# Recursive CTE Structure (NOT EXECUTABLE HERE):
+WITH RECURSIVE my_dates(dt) AS (SELECT '2014-12-25'
+								UNION ALL
+                                SELECT dt + INTERVAL 1 day
+                                FROM my_dates 
+                                WHERE dt < '2014-12-31')
+SELECT * FROM my_dates;
+
+-- ****************************************************************************************************
+# The Moodle "Categorization" Query with CASE WHEN:
+
+# CASE WHEN Example ONE:
+USE mydb;
+SELECT 
+    u.user_name,
+    a.task_name,
+    TIMESTAMPDIFF(MINUTE, a.start_time, a.end_time) AS duration,
+    -- Creating a custom 'Status' flag in SQL
+    CASE 
+        WHEN a.status = 'incomplete' THEN 'Priority: Slow-Completer'
+        WHEN TIMESTAMPDIFF(MINUTE, a.start_time, a.end_time) > 120 THEN 'Warning: High Duration'
+        ELSE 'On-Track'
+    END AS performance_category
+FROM users u
+JOIN activity a ON u.user_id = a.user_id;
+
+
+# CASE WHEN Example TWO:
+SELECT  product_category, quantity,
+	CASE 
+		WHEN quantity > 5 THEN 'high_stock'
+        WHEN quantity > 3 THEN 'medium_stock'
+        ELSE 'low'
+	END Stock_Category
+FROM analytics.ecommerce_sales;
 
 -- ****************************************************************************************************
