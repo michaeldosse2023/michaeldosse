@@ -309,3 +309,78 @@ SELECT  product_category, quantity,
 FROM analytics.ecommerce_sales;
 
 -- ****************************************************************************************************
+# ******************************************************************************************************
+# How to use OVER (PARTITION BY):
+
+USE mydb;
+
+SELECT 
+    user_id, 
+    task_name, 
+    TIMESTAMPDIFF(MINUTE, start_time, end_time) AS duration_minutes,
+    -- This looks at the average for JUST that specific task
+    AVG(TIMESTAMPDIFF(MINUTE, start_time, end_time)) OVER(PARTITION BY task_name) AS task_avg_duration,
+    status
+FROM activity
+WHERE status = 'completed';
+
+# ******************************************************************************************************
+# Subqueries FINAL Practice:
+
+# Example ONE:
+USE analytics;
+SELECT Category,	Sales,	QuantitY,	Region
+FROM retail_sales
+WHERE Region IN
+		(SELECT Category
+		FROM retail_sales
+		WHERE Quantity > 2 AND Region = 'South');
+
+# Example TWO:
+SELECT * FROM Products
+WHERE price > (SELECT AVG(price) FROM Products);
+
+# ******************************************************************************************************
+# The most commonly used SQL AGGREGATE FUNCTIONS are:
+
+MIN() # returns the smallest value of a column
+MAX() # returns the largest value of a column
+COUNT() # returns the number of rows in a set
+SUM() # returns the sum of a numerical column
+AVG() # returns the average value of a numerical column
+# Aggregate functions ignore null values (except for COUNT(*))
+
+# ******************************************************************************************************
+SELECT 
+FROM 
+	JOIN # Optional
+WHERE
+GROUP BY 
+ORDER BY
+HAVING # if WHERE clause is not suitable
+
+# ******************************************************************************************************
+
+SELECT date, 
+	payment_method, 
+    SUM(paymewnts) AS total_payments
+FROM invoices
+GROUP BY date, payment_method
+ORDER BY total_payments;
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
+
+# ******************************************************************************************************
