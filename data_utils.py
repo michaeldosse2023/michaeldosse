@@ -1,61 +1,40 @@
-# data_utils.py
 import pandas as pd
-from datetime import datetime
+import re
 
 
-def wash_and_dry(df, current_date_str="2026-05-13"):
+def clean_ecom_titles(df):
+    """Standardizes column names to lowercase and strips whitespaces."""
+    df.columns = [col.lower().replace(' ', '_') for col in df.columns]
+    return df
+
+def format_date(date_entry):
+    """Cleans ordinal suffixes and formats dates to UK standard."""
+    if pd.isna(date_entry) or str(date_entry).strip().lower() in ['none', '']:
+        return ""
+    date_str = str(date_entry)
+    clean_date = re.sub(r'(\d+)(st|nd|rd|th)', r'\1', date_str)
+    try:
+        dt = pd.to_datetime(clean_date, dayfirst=True)
+        return dt.strftime('%d/%m/%Y')
+    except:
+        return date_str
+
+
+def flag_customer_status(df, payment_column='payment_details'):
     """
-    The Professional Cleaning Library
-    - Handles headers, future dates, and nulls.
+    Creates a customer_status column.
+    Flags rows with missing payment details as 'slow-completers'.
     """
-    df_cleaned = df.copy()
-    current_date = pd.to_datetime(current_date_str)
+    if payment_column not in df.columns:
+        found_cols = [c for c in df.columns if 'payment' in c]
+        payment_column = found_cols[0] if found_cols else None
 
-    # 1. Header Normalization (The Architect's First Rule)
-    df_cleaned.columns = [col.strip().lower().replace(' ', '_') for col in df_cleaned.columns]
+    if payment_column:
+        df['customer_status'] = df[payment_column].apply(
+            lambda x: 'slow-completers' if pd.isna(x) or str(x).strip().lower() in ['none', ''] else 'active'
+        )
+    else:
+        df['customer_status'] = 'unknown'
+        print(f"⚠️ Warning: Could not find a payment column to flag statuses.")
 
-    # 2. Duplicate Column Removal
-    df_cleaned = df_cleaned.loc[:, ~df_cleaned.columns.duplicated()]
-
-    # 3. Dynamic Date Conversion & Future-Date Filtering
-    date_keywords = ['date', 'joined', 'enrolment', 'time']
-    for col in df_cleaned.columns:
-        if any(key in col for key in date_keywords):
-            df_cleaned[col] = pd.to_datetime(df_cleaned[col], errors='coerce')
-            # The 'Reality Check' filter you discovered
-            df_cleaned = df_cleaned[df_cleaned[col] <= current_date]
-
-    # 4. Handle Nulls (Applying your 'slow-completers' logic)
-    # This ensures consistency across all future projects
-    df_cleaned = df_cleaned.fillna('laggards')
-
-    return df_cleaned
-
-# *********** New Block of Codes at 14May PM ***************
-def get_intelligence_snapshot(df):
-    """
-    Generates a high-level summary while handling 'laggards' in numeric columns.
-    """
-    # Create a numeric-only version of the columns for math
-    # 'coerce' turns 'laggards' into NaN (ignored by sum/mean)
-    sales_numeric = pd.to_numeric(df['sales_amount'], errors='coerce')
-    profit_numeric = pd.to_numeric(df['profit'], errors='coerce')
-    stock_numeric = pd.to_numeric(df['stock_quantity'], errors='coerce')
-
-    stats = {
-        "Total Revenue": sales_numeric.sum(),
-        "Average Profit": profit_numeric.mean(),
-        "Laggard Count": (df == 'laggards').sum().sum(),
-        "Top Region": df['region'].value_counts().idxmax(),
-        "Total Items in Stock": stock_numeric.sum()
-    }
-
-    print("--- 🧠 INTELLIGENCE SNAPSHOT ---")
-    for key, value in stats.items():
-        if isinstance(value, (float, int)):
-            print(f"{key}: {value:,.2f}")
-        else:
-            print(f"{key}: {value}")
-    print("--------------------------------")
-
-    return stats
+    return df
