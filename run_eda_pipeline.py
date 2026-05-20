@@ -1,70 +1,55 @@
+import os
 import sqlite3
 import pandas as pd
-import numpy as np
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.width', 1000)
 
-# 1. Spin up our relational repository
+DATA_DIR = "data"
+DEPT_FILE = os.path.join(DATA_DIR, "departments.csv")
+RENAL_FILE = os.path.join(DATA_DIR, "renal_borne.csv")
+
+df_dept = pd.read_csv(DEPT_FILE)
+df_renal = pd.read_csv(RENAL_FILE)
+
 conn = sqlite3.connect(":memory:")
-cursor = conn.cursor()
+df_dept.to_sql("departments_table", conn, if_exists="replace", index=False)
+df_renal.to_sql("renal_table", conn, if_exists="replace", index=False)
 
-cursor.execute("CREATE TABLE users (user_id INT, user_name TEXT, course_group TEXT)")
-cursor.execute("CREATE TABLE user_activity (user_id INT, days_inactive INT, completed_modules INT)")
-
-# Expanded dataset to build proper statistical variance distributions
-users_data = [
-    (101, 'Alice Smith', 'Clinical Tech'), (102, 'Bob Jones', 'Obstetrics'),
-    (103, 'Charlie Green', 'Clinical Tech'), (104, 'Diana Prince', 'Obstetrics'),
-    (105, 'Evan Wright', 'Clinical Tech'), (106, 'Fiona Gallagher', 'Obstetrics'),
-    (107, 'George Brooks', 'Clinical Tech'), (108, 'Hannah Abbott', 'Obstetrics'),
-    (109, 'Ian Malcolm', 'Clinical Tech'), (110, 'Julia Roberts', 'Obstetrics')
-]
-
-activity_data = [
-    (101, 2, 12), (102, 14, 4), (103, 4, 15), (104, 25, 1), (105, 1, 14),
-    (106, 11, 6), (107, 2, 13), (108, 29, 0), (109, 5, 16), (110, 12, 5)
-]
-
-cursor.executemany("INSERT INTO users VALUES (?, ?, ?)", users_data)
-cursor.executemany("INSERT INTO user_activity VALUES (?, ?, ?)", activity_data)
-conn.commit()
-
-# 2. Pull data using our Window Function partition foundation
-query = """
+# =====================================================================
+# 🔮 ADVANCED WINDOW FUNCTION: Multi-Metric Partitioning
+# =====================================================================
+percentage_partition_query = """
 SELECT 
-    u.user_id,
-    u.user_name,
-    u.course_group,
-    a.days_inactive,
-    a.completed_modules,
-    ROUND(AVG(a.days_inactive) OVER(PARTITION BY u.course_group), 1) as group_mean_inactivity
-FROM users u
-INNER JOIN user_activity a ON u.user_id = a.user_id
+    r.id_number,
+    d.Department,
+    r.Staff_Group,
+    r.Completed,
+    -- 1. Get the headcount baseline for this specific profession ON THIS SPECIFIC WARD
+    COUNT(r.id_number) OVER(PARTITION BY d.Department, r.Staff_Group) as ward_stgroup_total,
+
+    -- 2. Sum up completions for this specific profession ON THIS SPECIFIC WARD
+    SUM(CASE WHEN r.Completed = 'Yes' THEN 1 ELSE 0 END) OVER(PARTITION BY d.Department, r.Staff_Group) as ward_stgroup_completions,
+
+    -- 3. Calculate the percentage localized to this specific ward-level profession
+    ROUND(
+        (SUM(CASE WHEN r.Completed = 'Yes' THEN 1.0 ELSE 0.0 END) OVER(PARTITION BY d.Department, r.Staff_Group) / 
+         COUNT(r.id_number) OVER(PARTITION BY d.Department, r.Staff_Group)) * 100, 1
+    ) || '%' as ward_stgroup_completion_rate
+FROM renal_table r
+INNER JOIN departments_table d ON r.id_number = d.id_number
 """
-df = pd.read_sql_query(query, conn)
 
-# 3. STATISTICAL EDA LAYER: Calculate Team Standard Deviation & Z-Score
-# Standard deviation measures the spread of the data.
-# Z-Score tells us exactly how many standard deviations a user is from their team's average.
-df['group_std_dev'] = df.groupby('course_group')['days_inactive'].transform('std').round(1)
-df['z_score'] = ((df['days_inactive'] - df['group_mean_inactivity']) / df['group_std_dev']).round(2)
+df_percentage = pd.read_sql_query(percentage_partition_query, conn)
 
-# Architect Rule: Mathematically classify performance risks
-def statistical_triage(z):
-    if z > 1.0:
-        return 'slow-completers (Critical Divergence)'
-    elif z > 0.0:
-        return 'active (Monitor Trend)'
-    return 'active (Optimal Efficiency)'
-
-df['performance_status'] = df['z_score'].apply(statistical_triage)
-
-# 4. PRINT ADVANCED STATISTICAL INSIGHT REPORT
-print("\n" + "📊" * 40)
-print("       INSIGHT SPECIALIST: ADVANCED DEVIATION REPORT")
-print("📊" * 40)
-print(df[['user_name', 'course_group', 'days_inactive', 'group_mean_inactivity', 'group_std_dev', 'z_score', 'performance_status']])
-print("📊" * 40 + "\n")
+# =====================================================================
+# PRINT THE LIVE TRIAGE REPORT
+# =====================================================================
+print("\n" + "🔮" * 45)
+print("     MODE 2 UPGRADE: OPERATIONAL TRIAGE VIEW WITH LIVE DEPT PERCENTAGES")
+print("🔮" * 45)
+# Print a sample showing rows from different departments to see the rate change
+print(df_percentage.iloc[[0, 1, 35, 36, 130, 131]])
+print("🔮" * 45 + "\n")
 
 conn.close()
