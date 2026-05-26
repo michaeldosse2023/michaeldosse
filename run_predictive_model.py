@@ -47,9 +47,29 @@ INNER JOIN departments_table d ON r.id_number = d.id_number
 INNER JOIN ward_stress_table w ON TRIM(d.Department) = TRIM(w.Target_Dept)
 """
 
-# w.Daily_Admissions,
-
 df_ml = pd.read_sql_query(ml_query, conn)
+
+# =====================================================================
+# 📊 PHASE 2 GRAND FINALE: HIGH-RISK COMPLIANCE REPORT
+# =====================================================================
+report_query = """
+SELECT 
+    r.id_number,
+    d.Department,
+    r.Staff_Group,
+    w.Patient_Staff_Ratio
+FROM renal_table r
+INNER JOIN departments_table d ON r.id_number = d.id_number
+INNER JOIN ward_stress_table w ON TRIM(d.Department) = TRIM(w.Target_Dept)
+WHERE r.Completed = 'No' 
+  AND r.Staff_Group = 'Nursing and Midwifery Registered'
+  AND w.Patient_Staff_Ratio > 4.5
+ORDER BY w.Patient_Staff_Ratio DESC;
+"""
+df_report = pd.read_sql_query(report_query, conn)
+df_report.to_csv('high_risk_compliance_report.csv', index=False)
+# =====================================================================
+
 conn.close()
 
 # 3. Feature Engineering: Convert categorical Staff_Group to numbers (One-Hot Encoding)
@@ -121,3 +141,14 @@ print(f"Overall Model Accuracy: {accuracy_score(y_test, y_pred) * 100:.1f}%")
 print("\nDetailed Performance Metrics:")
 print(classification_report(y_test, y_pred, target_names=['Slow-Completer (0)', 'Compliant (1)']))
 print("🎯" * 45 + "\n")
+
+# print("🎯" * 45 + "\n") # REPEATED; TO DELETE
+
+print("📝 --- PHASE 2 LIVE OPERATION INTERVENTION LIST --- 📝")
+if df_report.empty:
+    print("No nursing staff found matching the high-stress threshold criteria.")
+else:
+    print(df_report.to_string(index=False))
+    print("\n💾 Success! Clean CSV compiled and saved to your project folder.")
+
+#### UPDATED ON 26 MAY ####
